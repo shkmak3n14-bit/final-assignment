@@ -6,6 +6,7 @@
 # ライブラリの読み込み
 ############################################################
 import os
+import csv
 import logging
 from logging.handlers import TimedRotatingFileHandler
 from uuid import uuid4
@@ -18,6 +19,7 @@ from langchain_community.document_loaders import WebBaseLoader
 from langchain.text_splitter import CharacterTextSplitter
 from langchain_openai import OpenAIEmbeddings
 from langchain_community.vectorstores import Chroma
+from langchain.schema import Document as LC_Document
 import constants as ct
 
 
@@ -218,9 +220,50 @@ def file_load(path, docs_all):
 
     # 想定していたファイル形式の場合のみ読み込む
     if file_extension in ct.SUPPORTED_EXTENSIONS:
-        # ファイルの拡張子に合ったdata loaderを使ってデータ読み込み
-        loader = ct.SUPPORTED_EXTENSIONS[file_extension](path)
-        docs = loader.load()
+        # CSVは部署ごとに統合してドキュメント化
+        if file_extension == ".csv":
+            docs = []
+            with open(path, newline="", encoding="utf-8") as csv_file:
+                reader = csv.DictReader(csv_file)
+                rows = list(reader)
+
+            if rows:
+                fieldnames = reader.fieldnames or []
+
+                if "部署" in fieldnames:
+                    grouped_rows = {}
+                    for row in rows:
+                        department = (row.get("部署") or "不明").strip() or "不明"
+                        grouped_rows.setdefault(department, []).append(row)
+
+                    for department, dept_rows in grouped_rows.items():
+                        lines = [f"部署: {department}"]
+                        for index, row in enumerate(dept_rows, start=1):
+                            row_text = " / ".join(
+                                [f"{key}: {row.get(key, '')}" for key in fieldnames]
+                            ).strip()
+                            lines.append(f"行{index}: {row_text}")
+
+                        combined_text = "\n".join(lines)
+                        docs.append(
+                            LC_Document(
+                                page_content=combined_text,
+                                metadata={"source": path, "department": department}
+                            )
+                        )
+                else:
+                    lines = ["CSV（全件）"]
+                    for index, row in enumerate(rows, start=1):
+                        row_text = " / ".join(
+                            [f"{key}: {row.get(key, '')}" for key in fieldnames]
+                        ).strip()
+                        lines.append(f"行{index}: {row_text}")
+                    combined_text = "\n".join(lines)
+                    docs = [LC_Document(page_content=combined_text, metadata={"source": path})]
+        else:
+            # ファイルの拡張子に合ったdata loaderを使ってデータ読み込み
+            loader = ct.SUPPORTED_EXTENSIONS[file_extension](path)
+            docs = loader.load()
 
         # PDFの場合はページNo.のメタデータを必ず付与
         if file_extension == ".pdf":
