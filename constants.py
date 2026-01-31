@@ -47,8 +47,8 @@ TEMPERATURE = 0.5
 # RAG参照用のデータソース系
 # ==========================================
 RAG_TOP_FOLDER_PATH = "./data"
-RAG_CHUNK_SIZE = 500
-RAG_CHUNK_OVERLAP = 50
+RAG_CHUNK_SIZE = 800
+RAG_CHUNK_OVERLAP = 80
 SUPPORTED_EXTENSIONS = {
     ".pdf": PyMuPDFLoader,
     ".docx": Docx2txtLoader,

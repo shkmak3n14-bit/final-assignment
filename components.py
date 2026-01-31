@@ -14,6 +14,26 @@ import constants as ct
 # 関数定義
 ############################################################
 
+def format_file_path_with_page(file_path, page_number=None):
+    """
+    PDFファイルのありか表示用にページNo.を付与
+
+    Args:
+        file_path: ファイルパス
+        page_number: ページ番号
+
+    Returns:
+        表示用文字列
+    """
+    if page_number is None:
+        return file_path
+
+    if file_path.lower().endswith(".pdf"):
+        display_page_number = page_number + 1
+        return f"{file_path} (ページNo.{display_page_number})"
+
+    return file_path
+
 def display_app_title():
     """
     タイトル表示
@@ -74,7 +94,17 @@ def display_initial_ai_message():
     """
     with st.chat_message("assistant"):
         # 「st.success()」とすると緑枠で表示される
-        st.markdown("こんにちは。私は社内文書の情報をもとに回答する生成AIチャットボットです。上記で利用目的を選択し、画面下部のチャット欄からメッセージを送信してください。")
+        st.markdown(
+            """
+            <div style="color:#2e7d32; background-color:#e8f5e9; padding:8px 12px; border-radius:6px;">
+            こんにちは。私は社内文書の情報をもとに回答する生成AIチャットボットです。上記で利用目的を選択し、画面下部のチャット欄からメッセージを送信してください。
+            </div>
+            <div style="color:#7a5c00; background-color:#fff8e1; padding:6px 12px; border-radius:6px; margin-top:6px;">
+            ⚠️ 具体的に入力した方が期待通りの回答を得やすいです。
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
 
 
 
@@ -108,9 +138,13 @@ def display_conversation_log():
                         icon = utils.get_source_icon(message['content']['main_file_path'])
                         # 参照元ドキュメントのページ番号が取得できた場合にのみ、ページ番号を表示
                         if "main_page_number" in message["content"]:
-                            st.success(f"{message['content']['main_file_path']}", icon=icon)
+                            main_file_info = format_file_path_with_page(
+                                message["content"]["main_file_path"],
+                                message["content"]["main_page_number"]
+                            )
+                            st.success(main_file_info, icon=icon)
                         else:
-                            st.success(f"{message['content']['main_file_path']}", icon=icon)
+                            st.success(message["content"]["main_file_path"], icon=icon)
                         
                         # ==========================================
                         # ユーザー入力値と関連性が高いサブドキュメントのありかを表示
@@ -125,9 +159,13 @@ def display_conversation_log():
                                 icon = utils.get_source_icon(sub_choice['source'])
                                 # 参照元ドキュメントのページ番号が取得できた場合にのみ、ページ番号を表示
                                 if "page_number" in sub_choice:
-                                    st.info(f"{sub_choice['source']}", icon=icon)
+                                    sub_file_info = format_file_path_with_page(
+                                        sub_choice["source"],
+                                        sub_choice["page_number"]
+                                    )
+                                    st.info(sub_file_info, icon=icon)
                                 else:
-                                    st.info(f"{sub_choice['source']}", icon=icon)
+                                    st.info(sub_choice["source"], icon=icon)
                     # ファイルのありかの情報が取得できなかった場合、LLMからの回答のみ表示
                     else:
                         st.markdown(message["content"]["answer"])
@@ -180,7 +218,8 @@ def display_search_llm_response(llm_response):
             # ページ番号を取得
             main_page_number = llm_response["context"][0].metadata["page"]
             # 「メインドキュメントのファイルパス」と「ページ番号」を表示
-            st.success(f"{main_file_path}", icon=icon)
+            main_file_info = format_file_path_with_page(main_file_path, main_page_number)
+            st.success(main_file_info, icon=icon)
         else:
             # 「メインドキュメントのファイルパス」を表示
             st.success(f"{main_file_path}", icon=icon)
@@ -236,7 +275,11 @@ def display_search_llm_response(llm_response):
                 # ページ番号が取得できない場合のための分岐処理
                 if "page_number" in sub_choice:
                     # 「サブドキュメントのファイルパス」と「ページ番号」を表示
-                    st.info(f"{sub_choice['source']}", icon=icon)
+                    sub_file_info = format_file_path_with_page(
+                        sub_choice["source"],
+                        sub_choice["page_number"]
+                    )
+                    st.info(sub_file_info, icon=icon)
                 else:
                     # 「サブドキュメントのファイルパス」を表示
                     st.info(f"{sub_choice['source']}", icon=icon)
@@ -316,7 +359,7 @@ def display_contact_llm_response(llm_response):
                 # ページ番号を取得
                 page_number = document.metadata["page"]
                 # 「ファイルパス」と「ページ番号」
-                file_info = f"{file_path}"
+                file_info = format_file_path_with_page(file_path, page_number)
             else:
                 # 「ファイルパス」のみ
                 file_info = f"{file_path}"

@@ -135,7 +135,11 @@ def initialize_retriever():
     db = Chroma.from_documents(splitted_docs, embedding=embeddings)
 
     # ベクターストアを検索するRetrieverの作成
-    st.session_state.retriever = db.as_retriever(search_kwargs={"k": 5})
+    # - 類似度の高い候補を多めに取得し、重複を避けて多様性を確保
+    st.session_state.retriever = db.as_retriever(
+        search_type="mmr",
+        search_kwargs={"k": 8, "fetch_k": 20}
+    )
 
 
 def initialize_session_state():
@@ -217,6 +221,13 @@ def file_load(path, docs_all):
         # ファイルの拡張子に合ったdata loaderを使ってデータ読み込み
         loader = ct.SUPPORTED_EXTENSIONS[file_extension](path)
         docs = loader.load()
+
+        # PDFの場合はページNo.のメタデータを必ず付与
+        if file_extension == ".pdf":
+            for index, doc in enumerate(docs):
+                if "page" not in doc.metadata:
+                    doc.metadata["page"] = index
+
         docs_all.extend(docs)
 
 
